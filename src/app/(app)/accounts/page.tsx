@@ -437,8 +437,10 @@ export default function AccountsPage() {
                             size="icon"
                             className="h-8 w-8"
                             onClick={async () => {
-                              await navigator.clipboard.writeText(normalizeIban(a.iban))
+                              if (!a.iban) return;
+                              await navigator.clipboard.writeText(normalizeIban(a.iban));
                             }}
+
                             aria-label="IBAN kopieren"
                           >
                             <Copy className="h-4 w-4" />
