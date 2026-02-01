@@ -8,7 +8,7 @@ const CreateAccountSchema = z.object({
   name: z.string().min(1).max(120),
   type: z.enum(['PRIVATE', 'BUSINESS', 'TAX']).default('PRIVATE'),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#3b82f6'),
-  initialBalance: z.number().finite().default(0),
+  initialBalance: z.string().default("0"),
 
   // NEW: IBAN (optional oder required – hier optional, aber im UI sichtbar)
   iban: z
