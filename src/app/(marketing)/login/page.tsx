@@ -36,7 +36,7 @@ export default function LoginPage() {
                 redirect: true,
                 callbackUrl: '/dashboard',
               });
-              if (res?.error) setError('Login fehlgeschlagen');
+              // (res?.) setError('Login fehlgeschlagen');
             }}
           >
             Anmelden
