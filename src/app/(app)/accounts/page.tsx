@@ -52,11 +52,7 @@ const CreateAccountFormSchema = z.object({
   iban: z.string().optional(),
   type: z.enum(["PRIVATE", "BUSINESS", "TAX"]),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Ungültige Farbe"),
-  initialBalance: z
-    .string()
-    .default("0")
-    .transform((v) => Number(v))
-    .refine((n) => Number.isFinite(n), "Ungültiger Startsaldo"),
+  initialBalance: z.string().optional(),
 });
 
 type CreateAccountFormValues = z.infer<typeof CreateAccountFormSchema>;
@@ -69,11 +65,10 @@ const EditAccountFormSchema = z.object({
   initialBalance: z
     .string()
     .default("0")
-    .transform((v) => Number(v))
-    .refine((n) => Number.isFinite(n), "Ungültiger Startsaldo"),
+    .refine((v) => v.trim()==="" || Number.isFinite(Number(v.replace(",", "."))), "Ungültiger Startsaldo"),
 });
 
-type EditAccountFormValues = z.infer<typeof EditAccountFormSchema>;
+type EditAccountFormValues = z.input<typeof EditAccountFormSchema>;
 
 export default function AccountsPage() {
   const [items, setItems] = useState<Account[]>([]);
