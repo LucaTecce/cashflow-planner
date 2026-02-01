@@ -58,6 +58,11 @@ function todayISO() {
   return formatDateOnly(new Date())
 }
 
+function toDayOfMonth(values: RecurringFormValues) {
+  if (values.intervalType !== "MONTHLY") return null;
+  const v = values.dayOfMonth?.trim();
+  return v ? Number(v) : null; // number|null für DB
+}
 
 function toDateAny(v: string) {
   // Accepts "YYYY-MM-DD" and ISO timestamps
@@ -118,25 +123,30 @@ function computeNextDue(r: Recurring): string {
 const RecurringFormSchema = z.object({
   accountId: z.string().min(1, "Konto fehlt"),
   direction: z.enum(["EXPENSE", "INCOME"]).default("EXPENSE"),
+
   amountAbs: z
     .string()
     .min(1, "Betrag fehlt")
-    .transform((v) => Number(v))
-    .refine((n) => Number.isFinite(n) && n > 0, "Ungültiger Betrag"),
+    .refine((v) => Number.isFinite(Number(v.replace(",", "."))) && Number(v.replace(",", ".")) > 0, "Ungültiger Betrag"),
+
   description: z.string().min(1, "Beschreibung fehlt").max(200),
   category: z.string().min(1, "Kategorie fehlt").max(120).default(""),
   intervalType: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).default("MONTHLY"),
+
   dayOfMonth: z
     .string()
     .optional()
-    .transform((v) => (v === undefined || v === "" ? null : Number(v)))
-    .refine((n) => n === null || (Number.isInteger(n) && n >= 1 && n <= 31), "Tag 1–31"),
+    .refine(
+      (v) => !v || (Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 31),
+      "Tag 1–31",
+    ),
+
   startDate: z.string().min(10, "Startdatum fehlt"),
   isBusiness: z.boolean().default(false),
   isTaxRelevant: z.boolean().default(false),
 });
 
-type RecurringFormValues = z.infer<typeof RecurringFormSchema>;
+type RecurringFormValues = z.input<typeof RecurringFormSchema>;
 
 function splitAmount(amountStr: string): { direction: Direction; amountAbsStr: string } {
   const n = Number(amountStr);
@@ -275,8 +285,8 @@ export default function RecurringPage() {
   }, [accounts.length]);
 
   function signedAmount(values: RecurringFormValues) {
-    const abs = values.amountAbs;
-    return values.direction === "EXPENSE" ? -abs : abs;
+    const abs = values.amountAbs.replace(",", "."); // string
+    return values.direction === "EXPENSE" ? `-${abs}` : abs; // string
   }
 
   async function onCreate(values: RecurringFormValues) {
@@ -284,11 +294,11 @@ export default function RecurringPage() {
     try {
       const payload = {
         accountId: values.accountId,
-        amount: signedAmount(values),
+        amount: signedAmount(values),              // string
         description: values.description.trim(),
-        category: values.category.trim(),
+        category: values.category,
         intervalType: values.intervalType,
-        dayOfMonth: values.intervalType === "MONTHLY" ? values.dayOfMonth : null,
+        dayOfMonth: toDayOfMonth(values),          // number|null
         startDate: values.startDate,
         isBusiness: values.isBusiness,
         isTaxRelevant: values.isTaxRelevant,
@@ -341,7 +351,7 @@ export default function RecurringPage() {
         accountId: values.accountId,
         amount: signedAmount(values),
         description: values.description.trim(),
-        category: values.category.trim(),
+        category: values.category,
         intervalType: values.intervalType,
         dayOfMonth: values.intervalType === "MONTHLY" ? values.dayOfMonth : null,
         startDate: values.startDate,

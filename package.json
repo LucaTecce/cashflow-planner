@@ -46,6 +46,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
+    "@types/iban": "^0.0.35",
     "@types/node": "^20",
     "@types/pg": "^8.16.0",
     "@types/react": "^19",

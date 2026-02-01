@@ -46,20 +46,19 @@ type Budget = {
 const ALL = "ALL"
 
 const BudgetFormSchema = z.object({
-  accountId: z.string().nullable().default(null),
-  name: z.string().min(1).max(200),
-  category: z.string().min(1).max(120),
+  accountId: z.string().nullable().optional(),
+  name: z.string().min(1),
+  category: z.string().min(1),
   plannedAmount: z
     .string()
-    .min(1)
-    .transform((v) => Number(v))
-    .refine((n) => Number.isFinite(n) && n > 0, "Ungültiger Betrag"),
-  periodType: z.enum(["WEEKLY", "MONTHLY"]).default("MONTHLY"),
-  periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-})
+    .min(1, "Betrag fehlt")
+    .refine((v) => Number.isFinite(Number(v.replace(",", "."))), "Ungültiger Betrag"),
+  periodType: z.enum(["WEEKLY","MONTHLY"]).default("MONTHLY"),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+});
 
-type BudgetFormValues = z.infer<typeof BudgetFormSchema>
+type BudgetFormValues = z.input<typeof BudgetFormSchema>;
 
 function clampPercent(p: number) {
   if (!Number.isFinite(p)) return 0
@@ -171,7 +170,7 @@ export default function BudgetsPage() {
         accountId: values.accountId,
         name: values.name.trim(),
         category: values.category.trim(),
-        plannedAmount: values.plannedAmount,
+        plannedAmount: values.plannedAmount.replace(",", "."),
         periodType: values.periodType,
         periodStart: values.periodStart,
         periodEnd: values.periodEnd,

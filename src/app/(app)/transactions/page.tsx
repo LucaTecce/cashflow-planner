@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from "react"
-import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -74,13 +73,12 @@ const NormalFormSchema = z.object({
   amountAbs: z
     .string()
     .min(1)
-    .transform((v) => Number(v))
-    .refine((n) => Number.isFinite(n) && n > 0, "Ungültiger Betrag"),
+    .refine((n) => Number.isFinite(n), "Ungültiger Betrag"),
   isBusiness: z.boolean().default(false),
   isTaxRelevant: z.boolean().default(false),
 })
 
-type NormalFormValues = z.infer<typeof NormalFormSchema>
+type NormalFormValues = z.input<typeof NormalFormSchema>
 
 const TransferFormSchema = z.object({
   txDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -90,21 +88,27 @@ const TransferFormSchema = z.object({
   amountAbs: z
     .string()
     .min(1)
-    .transform((v) => Number(v))
-    .refine((n) => Number.isFinite(n) && n > 0, "Ungültiger Betrag"),
+    .refine((n) => Number.isFinite(n), "Ungültiger Betrag"),
   isBusiness: z.boolean().default(false),
   isTaxRelevant: z.boolean().default(false),
 })
 
-type TransferFormValues = z.infer<typeof TransferFormSchema>
+type TransferFormValues = z.input<typeof TransferFormSchema>
 
 function todayISO() {
   return formatDateOnly(new Date())
 }
 
-function signedAmount(direction: "EXPENSE" | "INCOME", amountAbs: number) {
-  return direction === "EXPENSE" ? -Math.abs(amountAbs) : Math.abs(amountAbs)
+function signedAmount(
+  direction: "EXPENSE" | "INCOME" | undefined,
+  amountAbs: string
+) {
+  const dir = direction ?? "EXPENSE";
+  const absNum = Number(amountAbs);
+  return dir === "EXPENSE" ? -absNum : absNum;
 }
+
+
 
 export default function TransactionsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -272,7 +276,7 @@ export default function TransactionsPage() {
         const payload = {
           kind: "NORMAL",
           accountId: v.accountId,
-          amount: signedAmount(v.direction, Number(v.amountAbs)),
+          amount: signedAmount(v.direction ?? "EXPENSE", v.amountAbs),
           description: v.description,
           category: v.category || undefined,
           tags: [],
@@ -356,7 +360,7 @@ export default function TransactionsPage() {
 
       const payload = {
         accountId: v.accountId,
-        amount: signedAmount(v.direction, Number(v.amountAbs)),
+        amount: signedAmount(v.direction, v.amountAbs),
         description: v.description,
         category: v.category || null,
         isBusiness: v.isBusiness,
