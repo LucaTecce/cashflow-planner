@@ -8,7 +8,7 @@ const PatchAccountSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   type: z.enum(['PRIVATE', 'BUSINESS', 'TAX']).optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  initialBalance: z.number().finite().optional(),
+  initialBalance: z.string().optional(),
   iban: z
     .string()
     .transform((v) => electronicFormat(v)) // [web:117]

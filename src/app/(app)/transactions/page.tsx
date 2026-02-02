@@ -49,7 +49,7 @@ type TxItem = {
   tx_date: string
   description: string
   category: string | null
-  amount: string
+  amount: number
   is_business: boolean
   is_tax_relevant: boolean
 
@@ -64,36 +64,38 @@ type TxItem = {
 
 const ALL = "ALL"
 
+const AmountAbsSchema = z.coerce
+  .string()
+  .min(1)
+  .transform((s) => s.trim().replace(/\./g, "").replace(",", "."))
+  .transform((s) => Number(s))
+  .refine((n) => Number.isFinite(n) && n > 0, "Ungültiger Betrag");
+
+
 const NormalFormSchema = z.object({
   txDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   accountId: z.string().uuid(),
   description: z.string().min(1).max(200),
   category: z.string().optional().transform((v) => (v?.trim() ? v.trim() : undefined)),
   direction: z.enum(["EXPENSE", "INCOME"]).default("EXPENSE"),
-  amountAbs: z
-    .string()
-    .min(1)
-    .refine((n) => Number.isFinite(n), "Ungültiger Betrag"),
+  amountAbs: AmountAbsSchema,
   isBusiness: z.boolean().default(false),
   isTaxRelevant: z.boolean().default(false),
 })
 
-type NormalFormValues = z.input<typeof NormalFormSchema>
+type NormalFormValues = z.output<typeof NormalFormSchema>
 
 const TransferFormSchema = z.object({
   txDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   fromAccountId: z.string().uuid(),
   toAccountId: z.string().uuid(),
   description: z.string().min(1).max(200),
-  amountAbs: z
-    .string()
-    .min(1)
-    .refine((n) => Number.isFinite(n), "Ungültiger Betrag"),
+  amountAbs: AmountAbsSchema,
   isBusiness: z.boolean().default(false),
   isTaxRelevant: z.boolean().default(false),
 })
 
-type TransferFormValues = z.input<typeof TransferFormSchema>
+type TransferFormValues = z.output<typeof TransferFormSchema>
 
 function todayISO() {
   return formatDateOnly(new Date())
@@ -101,13 +103,11 @@ function todayISO() {
 
 function signedAmount(
   direction: "EXPENSE" | "INCOME" | undefined,
-  amountAbs: string
+  amountAbs: number
 ) {
-  const dir = direction ?? "EXPENSE";
-  const absNum = Number(amountAbs);
-  return dir === "EXPENSE" ? -absNum : absNum;
+  const dir = direction ?? "EXPENSE"
+  return dir === "EXPENSE" ? -amountAbs : amountAbs
 }
-
 
 
 export default function TransactionsPage() {
@@ -139,7 +139,7 @@ export default function TransactionsPage() {
 
   const [saving, setSaving] = useState(false)
 
-  const createNormalForm = useForm<NormalFormValues>({
+  const createNormalForm = useForm<z.input<typeof NormalFormSchema>, any, z.output<typeof NormalFormSchema>>({
     resolver: zodResolver(NormalFormSchema),
     defaultValues: {
       txDate: todayISO(),
@@ -153,20 +153,20 @@ export default function TransactionsPage() {
     },
   })
 
-  const createTransferForm = useForm<TransferFormValues>({
+  const createTransferForm = useForm<z.input<typeof TransferFormSchema>, any, z.output<typeof TransferFormSchema>>({
     resolver: zodResolver(TransferFormSchema),
     defaultValues: {
       txDate: todayISO(),
       fromAccountId: "",
       toAccountId: "",
       description: "",
-      amountAbs: "20",
+      amountAbs: 20,
       isBusiness: false,
       isTaxRelevant: false,
     },
   })
 
-  const editNormalForm = useForm<NormalFormValues>({
+  const editNormalForm = useForm<z.input<typeof NormalFormSchema>, any, z.output<typeof NormalFormSchema>>({
     resolver: zodResolver(NormalFormSchema),
     defaultValues: {
       txDate: todayISO(),
@@ -220,7 +220,7 @@ export default function TransactionsPage() {
 
   const rows = useMemo(() => {
     return items.map((t) => {
-      const amt = Number(t.amount)
+      const amt = t.amount
       const isTransfer = t.kind === "TRANSFER"
       const key = (t.kind === "TRANSFER" ? t.transfer_group_id : t.id) ?? t.id
       const accountText =
@@ -269,54 +269,50 @@ export default function TransactionsPage() {
     setSaving(true)
     try {
       if (tab === "NORMAL") {
-        const values = await createNormalForm.trigger()
-        if (!values) return
+        await createNormalForm.handleSubmit(async (v) => {
+          const payload = {
+            kind: "NORMAL" as const,
+            accountId: v.accountId,
+            amount: signedAmount(v.direction ?? "EXPENSE", v.amountAbs),
+            description: v.description,
+            category: v.category || undefined,
+            tags: [],
+            isBusiness: v.isBusiness,
+            isTaxRelevant: v.isTaxRelevant,
+            txDate: v.txDate,
+          }
 
-        const v = createNormalForm.getValues()
-        const payload = {
-          kind: "NORMAL",
-          accountId: v.accountId,
-          amount: signedAmount(v.direction ?? "EXPENSE", v.amountAbs),
-          description: v.description,
-          category: v.category || undefined,
-          tags: [],
-          isBusiness: v.isBusiness,
-          isTaxRelevant: v.isTaxRelevant,
-          txDate: v.txDate,
-        }
-
-        const r = await fetch("/api/transactions", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-        if (!r.ok) throw new Error("Create failed")
+          const r = await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+          if (!r.ok) throw new Error("Create failed")
+        })()
       } else {
-        const values = await createTransferForm.trigger()
-        if (!values) return
+        await createTransferForm.handleSubmit(async (v) => {
+          const amt = Math.abs(v.amountAbs || 0)
 
-        const v = createTransferForm.getValues()
-        const amt = Math.abs(Number(v.amountAbs) || 0)
+          const payload = {
+            kind: "TRANSFER" as const,
+            fromAccountId: v.fromAccountId,
+            toAccountId: v.toAccountId,
+            amount: amt,
+            description: v.description,
+            category: "Transfer",
+            tags: [],
+            isBusiness: v.isBusiness,
+            isTaxRelevant: v.isTaxRelevant,
+            txDate: v.txDate,
+          }
 
-        const payload = {
-          kind: "TRANSFER",
-          fromAccountId: v.fromAccountId,
-          toAccountId: v.toAccountId,
-          amount: amt,
-          description: v.description,
-          category: "Transfer",
-          tags: [],
-          isBusiness: v.isBusiness,
-          isTaxRelevant: v.isTaxRelevant,
-          txDate: v.txDate,
-        }
-
-        const r = await fetch("/api/transactions", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-        if (!r.ok) throw new Error("Create failed")
+          const r = await fetch("/api/transactions", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+          if (!r.ok) throw new Error("Create failed")
+        })()
       }
 
       setCreateOpen(false)
@@ -334,7 +330,7 @@ export default function TransactionsPage() {
       return
     }
 
-    const amountN = Number(t.amount)
+    const amountN = t.amount
     editNormalForm.reset({
       txDate: toDateOnlyInput(t.tx_date),
       accountId: t.account_id ?? "",
@@ -353,31 +349,28 @@ export default function TransactionsPage() {
 
     setSaving(true)
     try {
-      const ok = await editNormalForm.trigger()
-      if (!ok) return
+      await editNormalForm.handleSubmit(async (v) => {
+        const payload = {
+          accountId: v.accountId,
+          amount: signedAmount(v.direction, v.amountAbs),
+          description: v.description,
+          category: v.category || null,
+          isBusiness: v.isBusiness,
+          isTaxRelevant: v.isTaxRelevant,
+          txDate: v.txDate,
+        }
 
-      const v = editNormalForm.getValues()
+        const r = await fetch(`/api/transactions/${selectedTx.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        if (!r.ok) throw new Error("Update failed")
 
-      const payload = {
-        accountId: v.accountId,
-        amount: signedAmount(v.direction, v.amountAbs),
-        description: v.description,
-        category: v.category || null,
-        isBusiness: v.isBusiness,
-        isTaxRelevant: v.isTaxRelevant,
-        txDate: v.txDate,
-      }
-
-      const r = await fetch(`/api/transactions/${selectedTx.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!r.ok) throw new Error("Update failed")
-
-      setEditOpen(false)
-      setSelectedTx(null)
-      await load()
+        setEditOpen(false)
+        setSelectedTx(null)
+        await load()
+      })()
     } finally {
       setSaving(false)
     }
@@ -817,7 +810,7 @@ export default function TransactionsPage() {
                 </TableRow>
               ) : (
                 rows.map((t) => {
-                  const amountN = Number(t.amount)
+                  const amountN = t.amount
                   return (
                     <TableRow key={t.key}>
                       <TableCell className="align-top font-medium">

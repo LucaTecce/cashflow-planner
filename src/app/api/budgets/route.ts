@@ -7,7 +7,7 @@ const CreateBudgetSchema = z.object({
   accountId: z.string().uuid().nullable().optional(),
   name: z.string().min(1).max(120),
   category: z.string().min(1).max(120),
-  plannedAmount: z.number().finite().positive(),
+  plannedAmount: z.coerce.number().finite().positive(),
   periodType: z.enum(['WEEKLY', 'MONTHLY']),
   periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -38,8 +38,8 @@ export async function GET(req: Request) {
     SELECT
       b.id, b.account_id, a.name as account_name,
       b.name, b.category,
-      b.planned_amount, b.used_amount,
-      b.period_type, b.period_start, b.period_end,
+      b.planned_amount::float8 as planned_amount, b.used_amount::float8 as used_amount,
+            b.period_type, b.period_start, b.period_end,
       b.created_at, b.updated_at
     FROM budgets b
     LEFT JOIN accounts a ON a.id = b.account_id
@@ -78,7 +78,19 @@ export async function POST(req: Request) {
       (user_id, account_id, name, category, planned_amount, period_type, period_start, period_end)
     VALUES
       ($1,$2,$3,$4,$5,$6,$7,$8)
-    RETURNING *
+        RETURNING
+      id,
+      account_id,
+      name,
+      category,
+      planned_amount::float8 as planned_amount,
+      used_amount::float8 as used_amount,
+      period_type,
+      period_start::text as period_start,
+      period_end::text as period_end,
+      created_at,
+      updated_at
+
     `,
     [
       guard.userId,

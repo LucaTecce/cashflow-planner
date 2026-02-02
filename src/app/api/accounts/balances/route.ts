@@ -14,9 +14,9 @@ export async function GET() {
             a.type,
             a.color,
             a.iban,
-            a.initial_balance,
-            COALESCE(SUM(t.amount), 0) AS movement,
-            (a.initial_balance + COALESCE(SUM(t.amount), 0)) AS balance
+            a.initial_balance::float8 as initial_balance,
+                COALESCE(SUM(t.amount), 0)::float8 AS movement,
+                (a.initial_balance + COALESCE(SUM(t.amount), 0))::float8 AS balance
         FROM accounts a
                  LEFT JOIN transactions t
                            ON t.account_id = a.id

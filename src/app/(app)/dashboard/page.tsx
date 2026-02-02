@@ -24,9 +24,9 @@ type AccountBalanceRow = {
   type: 'PRIVATE' | 'BUSINESS' | 'TAX';
   color: string | null;
   iban: string | null;
-  initial_balance: string;
-  movement: string;
-  balance: string;
+  initial_balance: number;
+  movement: number;
+  balance: number;
 };
 
 type TxItem = {
@@ -36,7 +36,7 @@ type TxItem = {
   tx_date: string;
   description: string;
   category: string | null;
-  amount: string;
+  amount: number;
   is_business: boolean;
   is_tax_relevant: boolean;
   account_id: string | null;
@@ -49,8 +49,8 @@ type BudgetOverview = {
   id: string;
   name: string;
   category: string;
-  planned_amount: string;
-  used_amount: string;
+  planned_amount: number;
+  used_amount: number;
   account_id: string | null;
   account_name: string | null;
   period_start: string;
@@ -121,7 +121,7 @@ export default function DashboardPage() {
   }, []);
 
   const totals = useMemo(() => {
-    const total = sum(accounts.map((a) => n(a.balance)));
+    const total = sum(accounts.map((a) => a.balance));
     const priv = sum(accounts.filter((a) => a.type === 'PRIVATE').map((a) => n(a.balance)));
     const biz = sum(accounts.filter((a) => a.type === 'BUSINESS').map((a) => n(a.balance)));
     const tax = sum(accounts.filter((a) => a.type === 'TAX').map((a) => n(a.balance)));
@@ -129,7 +129,7 @@ export default function DashboardPage() {
   }, [accounts]);
 
   const budgetStats = useMemo(() => {
-    const parsed = budgets.map((b) => ({ ...b, planned: n(b.planned_amount), used: n(b.used_amount) }));
+    const parsed = budgets.map((b) => ({ ...b, planned: b.planned_amount, used: b.used_amount }));
     const over = parsed.filter((b) => b.planned > 0 && b.used > b.planned).length;
     const near = parsed.filter((b) => b.planned > 0 && b.used / b.planned >= 0.9 && b.used <= b.planned).length;
     return { parsed, over, near };
@@ -267,7 +267,7 @@ export default function DashboardPage() {
               <div className="text-sm text-muted-foreground">Keine Transaktionen gefunden.</div>
             ) : (
               txs.map((t, idx) => {
-                const amountN = n(t.amount);
+                const amountN = t.amount;
                 const subtitle =
                   t.kind === 'TRANSFER'
                     ? `${t.tx_date} · ${t.from_account_name ?? '—'} → ${t.to_account_name ?? '—'}`

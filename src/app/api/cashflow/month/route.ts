@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
   // 1) Recurring laden (Plan-Ebene)
   const recurringRes = await pool.query(
     `
-    SELECT id, amount, description, category, interval_type, day_of_month,
-           start_date::text, end_date::text, account_id
+        SELECT id, amount::float8 as amount, description, category, interval_type, day_of_month,
+               start_date::text, end_date::text, account_id
     FROM recurring
     WHERE user_id = $1
       AND start_date <= $3::date
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
   // 2) Budgets laden (Plan-Ebene) – wir "reservieren" am period_start
   const budgetsRes = await pool.query(
     `
-    SELECT id, name, category, planned_amount, used_amount,
-           period_type, period_start::text, period_end::text, account_id
+        SELECT id, name, category, planned_amount::float8 as planned_amount, used_amount::float8 as used_amount,
+                period_type, period_start::text, period_end::text, account_id
     FROM budgets
     WHERE user_id = $1
       AND period_start <= $3::date
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         date,
         kind: 'RECURRING',
         title: r.description,
-        amount: Number(r.amount),
+        amount: r.amount,
         meta: { recurringId: r.id, category: r.category, accountId: r.account_id },
       });
     }
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
           date: ds,
           kind: 'RECURRING',
           title: r.description,
-          amount: Number(r.amount),
+          amount: r.amount,
           meta: { recurringId: r.id, category: r.category, accountId: r.account_id },
         });
       }
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
 
   // Budgets -> Reserve-Event am period_start (im Monat)
   for (const b of budgetsRes.rows) {
-    const reserve = Number(b.planned_amount); // Reservierung (Ausgabe im Plan)
+    const reserve = b.planned_amount;
     const ps = b.period_start; // YYYY-MM-DD
 
     // Nur Events, die im aktuellen Monat starten

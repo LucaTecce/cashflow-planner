@@ -100,8 +100,8 @@ export async function GET(req: Request) {
                 NULL::uuid as to_account_id,
                 NULL::text as to_account_name,
 
-                t.amount,
-            t.description,
+                t.amount::float8 as amount,
+                t.description,
             t.category,
             t.tags,
             t.is_business,
@@ -144,8 +144,8 @@ export async function GET(req: Request) {
             inp.account_id as to_account_id,
             ta.name as to_account_name,
 
-            inp.amount as amount, -- positiv
-            COALESCE(out.description, inp.description) as description,
+            inp.amount::float8 as amount, -- positiv
+                COALESCE(out.description, inp.description) as description,
             COALESCE(out.category, inp.category) as category,
             COALESCE(out.tags, inp.tags) as tags,
             (out.is_business OR inp.is_business) as is_business,

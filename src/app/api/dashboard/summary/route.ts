@@ -11,7 +11,7 @@ export async function GET() {
   const balances = await pool.query(
     `
     SELECT
-      COALESCE(SUM(a.initial_balance + COALESCE(x.movement, 0)), 0) AS total_balance
+        COALESCE(SUM(a.initial_balance + COALESCE(x.movement, 0)), 0)::float8 AS total_balance
     FROM accounts a
     LEFT JOIN (
       SELECT account_id, SUM(amount) AS movement
@@ -26,8 +26,8 @@ export async function GET() {
 
   const cashflow30 = await pool.query(
     `
-    SELECT COALESCE(SUM(amount), 0) AS cashflow_30d
-    FROM transactions
+        SELECT COALESCE(SUM(amount), 0)::float8 AS cashflow_30d
+        FROM transactions
     WHERE user_id = $1
       AND tx_date >= (CURRENT_DATE - INTERVAL '30 days')
     `,
@@ -36,8 +36,8 @@ export async function GET() {
 
   const income30 = await pool.query(
     `
-    SELECT COALESCE(SUM(amount), 0) AS income_30d
-    FROM transactions
+        SELECT COALESCE(SUM(amount), 0)::float8 AS income_30d
+        FROM transactions
     WHERE user_id = $1
       AND tx_date >= (CURRENT_DATE - INTERVAL '30 days')
       AND amount > 0
@@ -47,8 +47,8 @@ export async function GET() {
 
   const expense30 = await pool.query(
     `
-    SELECT COALESCE(SUM(amount), 0) AS expense_30d
-    FROM transactions
+        SELECT COALESCE(SUM(amount), 0)::float8 AS expense_30d
+        FROM transactions
     WHERE user_id = $1
       AND tx_date >= (CURRENT_DATE - INTERVAL '30 days')
       AND amount < 0

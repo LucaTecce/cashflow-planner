@@ -23,7 +23,7 @@ export async function GET() {
   if (!guard.ok) return guard.res;
 
   const r = await pool.query(
-    `SELECT id, name, type, color, initial_balance, iban, created_at, updated_at
+    `SELECT id, name, type, color, initial_balance::float8 as initial_balance, iban, created_at, updated_at
      FROM accounts
      WHERE user_id = $1
      ORDER BY created_at DESC`,

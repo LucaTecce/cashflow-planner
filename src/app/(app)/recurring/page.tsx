@@ -35,7 +35,7 @@ type Recurring = {
   id: string;
   account_id: string;
   account_name: string;
-  amount: string; // numeric as string
+  amount: number; // numeric as string
   description: string;
   category: string;
   interval_type: 'WEEKLY' | 'MONTHLY' | 'YEARLY';
@@ -120,15 +120,18 @@ function computeNextDue(r: Recurring): string {
   return formatDateOnly(candidate)
 }
 
+const AmountAbsSchema = z.coerce
+  .string()
+  .min(1, "Betrag fehlt")
+  .transform((s) => s.trim().replace(/\./g, "").replace(",", "."))
+  .transform((s) => Number(s))
+  .refine((n) => Number.isFinite(n) && n > 0, "Ungültiger Betrag");
+
+
 const RecurringFormSchema = z.object({
   accountId: z.string().min(1, "Konto fehlt"),
   direction: z.enum(["EXPENSE", "INCOME"]).default("EXPENSE"),
-
-  amountAbs: z
-    .string()
-    .min(1, "Betrag fehlt")
-    .refine((v) => Number.isFinite(Number(v.replace(",", "."))) && Number(v.replace(",", ".")) > 0, "Ungültiger Betrag"),
-
+  amountAbs: AmountAbsSchema,
   description: z.string().min(1, "Beschreibung fehlt").max(200),
   category: z.string().min(1, "Kategorie fehlt").max(120).default(""),
   intervalType: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).default("MONTHLY"),
@@ -146,9 +149,9 @@ const RecurringFormSchema = z.object({
   isTaxRelevant: z.boolean().default(false),
 });
 
-type RecurringFormValues = z.input<typeof RecurringFormSchema>;
+type RecurringFormValues = z.output<typeof RecurringFormSchema>;
 
-function splitAmount(amountStr: string): { direction: Direction; amountAbsStr: string } {
+function splitAmount(amountStr: number): { direction: Direction; amountAbsStr: string } {
   const n = Number(amountStr);
   const dir: Direction = n < 0 ? "EXPENSE" : "INCOME";
   const absStr = String(Math.abs(n || 0));
@@ -204,13 +207,13 @@ export default function RecurringPage() {
 
   const itemsWithNext = useMemo(() => {
     return filtered
-      .map((r) => ({ r, nextDue: computeNextDue(r), amountN: Number(r.amount) }))
+      .map((r) => ({ r, nextDue: computeNextDue(r), amountN: r.amount }))
       .sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   }, [filtered]);
 
   const sumMonthly = useMemo(() => {
     const m = filtered.reduce((acc, r) => {
-      const a = Number(r.amount);
+      const a = r.amount;
       if (r.interval_type === 'WEEKLY') return acc + a * 4;
       if (r.interval_type === 'YEARLY') return acc + a / 12;
       return acc + a;
@@ -221,7 +224,7 @@ export default function RecurringPage() {
   const perAccount = useMemo(() => {
     const map = new Map<string, { account_id: string; account_name: string; totalMonthly: number; count: number }>();
     for (const r of filtered) {
-      const a = Number(r.amount);
+      const a = r.amount;
       const monthly =
         r.interval_type === "WEEKLY" ? a * 4 :
           r.interval_type === "YEARLY" ? a / 12 :
@@ -242,12 +245,12 @@ export default function RecurringPage() {
 
   const nextUp = useMemo(() => itemsWithNext.slice(0, 5), [itemsWithNext]);
 
-  const createForm = useForm<RecurringFormValues>({
+  const createForm = useForm<z.input<typeof RecurringFormSchema>, any, z.output<typeof RecurringFormSchema>>({
     resolver: zodResolver(RecurringFormSchema),
     defaultValues: {
       accountId: "",
       direction: "EXPENSE",
-      amountAbs: "500",
+      amountAbs: 500,
       description: "",
       category: "Wohnen",
       intervalType: "MONTHLY",
@@ -258,12 +261,12 @@ export default function RecurringPage() {
     },
   });
 
-  const editForm = useForm<RecurringFormValues>({
+  const editForm = useForm<z.input<typeof RecurringFormSchema>, any, z.output<typeof RecurringFormSchema>>({
     resolver: zodResolver(RecurringFormSchema),
     defaultValues: {
       accountId: "",
       direction: "EXPENSE",
-      amountAbs: "500",
+      amountAbs: 500,
       description: "",
       category: "",
       intervalType: "MONTHLY",
@@ -285,8 +288,8 @@ export default function RecurringPage() {
   }, [accounts.length]);
 
   function signedAmount(values: RecurringFormValues) {
-    const abs = values.amountAbs.replace(",", "."); // string
-    return values.direction === "EXPENSE" ? `-${abs}` : abs; // string
+    const abs = values.amountAbs; // number
+    return values.direction === "EXPENSE" ? -abs : abs; // number
   }
 
   async function onCreate(values: RecurringFormValues) {
@@ -353,7 +356,7 @@ export default function RecurringPage() {
         description: values.description.trim(),
         category: values.category,
         intervalType: values.intervalType,
-        dayOfMonth: values.intervalType === "MONTHLY" ? values.dayOfMonth : null,
+        dayOfMonth: toDayOfMonth(values),
         startDate: values.startDate,
         isBusiness: values.isBusiness,
         isTaxRelevant: values.isTaxRelevant,
