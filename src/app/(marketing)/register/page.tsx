@@ -4,12 +4,16 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from "next/navigation";
+
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
+
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-4">
@@ -36,7 +40,11 @@ export default function RegisterPage() {
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ email, password, name: name || undefined }),
               });
-              setMsg(res.ok ? 'Account erstellt. Bitte einloggen.' : 'Fehler beim Erstellen.');
+              if (res.ok) {
+                router.replace("/login");
+                return;
+              }
+              setMsg("Fehler beim Erstellen.");
             }}
           >
             Account erstellen

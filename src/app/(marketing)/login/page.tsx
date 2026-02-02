@@ -5,11 +5,14 @@ import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from "next/navigation";
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-4">
@@ -30,12 +33,21 @@ export default function LoginPage() {
             className="w-full"
             onClick={async () => {
               setError(null);
-              const res = await signIn('credentials', {
+              const res = await signIn("credentials", {
                 email,
                 password,
-                redirect: true,
-                callbackUrl: '/dashboard',
+                redirect: false,
+                callbackUrl: "/dashboard",
               });
+
+              if (res?.error) {
+                setError("Login fehlgeschlagen");
+                return;
+              }
+
+              router.push(res?.url ?? "/dashboard");
+              router.refresh();
+
               // (res?.) setError('Login fehlgeschlagen');
             }}
           >
