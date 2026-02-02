@@ -15,6 +15,7 @@ import {
   Repeat,
   PiggyBank,
   ArrowLeftRight,
+  Coins,
 } from "lucide-react";
 
 const nav = [
@@ -22,6 +23,7 @@ const nav = [
   { href: "/cashflow", label: "Cashflow-Plan", icon: CalendarClock },
   { href: "/accounts", label: "Konten", icon: Wallet },
   { href: "/recurring", label: "Fixkosten", icon: Repeat },
+  { href: "/income", label: "Einnahmen", icon: Coins },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
   { href: "/transactions", label: "Transaktionen", icon: ArrowLeftRight },
 ];
